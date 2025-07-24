@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คชื่อนักเรียนออนไลน์ - คณะเทคโนโลยีอุตสาหกรรม</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .status-present { background-color: #dcfce7; border-color: #16a34a; }
+        .status-absent { background-color: #fef2f2; border-color: #dc2626; }
+        .status-leave { background-color: #fefce8; border-color: #ca8a04; }
+        .nav-btn.active { background-color: #1e40af !important; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-blue-600">
+        <div class="container mx-auto px-6 py-4">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-gray-800">ระบบเช็คชื่อนักเรียนออนไลน์</h1>
+                <p class="text-lg text-gray-600 mt-2">คณะเทคโนโลยีอุตสาหกรรม</p>
+                <p class="text-md text-gray-500">มหาวิทยาลัยนครพนม</p>
+                <div class="mt-3 bg-blue-50 inline-block px-4 py-2 rounded-lg">
+                    <label class="text-sm text-blue-700 font-medium">อาจารย์ผู้สอน:</label>
+                    <input type="text" id="teacher-name" placeholder="กรอกชื่ออาจารย์" 
+                           class="ml-2 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           onchange="saveTeacherName()">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Navigation -->
+        <nav class="bg-white rounded-lg shadow-md mb-8 p-4">
+            <div class="flex flex-wrap justify-center gap-3">
+                <button onclick="showPage('csv-upload')" class="nav-btn bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors text-sm">📁 อัปโหลด CSV</button>
+                <button onclick="showPage('qr-generator')" class="nav-btn bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700 transition-colors text-sm">📱 สร้าง QR Code</button>
+                <button onclick="showPage('attendance')" class="nav-btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">✓ เช็คชื่อ</button>
+                <button onclick="showPage('daily-report')" class="nav-btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm">📊 รายงานรายวัน</button>
+                <button onclick="showPage('summary')" class="nav-btn bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm">📈 สรุปข้อมูล</button>
+                <button onclick="showPage('comparison')" class="nav-btn bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm">🏆 เปรียบเทียบห้อง</button>
+                <button onclick="showPage('notes')" class="nav-btn bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm">📝 บันทึกพฤติกรรม</button>
+            </div>
+        </nav>
+
+        <!-- CSV Upload Page -->
+        <div id="csv-upload-page" class="page">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">อัปโหลดรายชื่อนักเรียนจากไฟล์ CSV</h2>
+                
+                <!-- CSV Format Guide -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 class="font-semibold text-blue-800 mb-2">📋 รูปแบบไฟล์ CSV ที่ถูกต้อง</h3>
+                    <p class="text-blue-700 mb-2">ไฟล์ CSV ควรมีคอลัมน์ดังนี้:</p>
+                    <div class="bg-white p-3 rounded border text-sm font-mono">
+                        student_id,name,level,major<br>
+                        6501001,นายสมชาย ใจดี,ปวช,อิเล็กทรอนิกส์<br>
+                        6501002,นางสาวสมหญิง รักเรียน,ปวส,เทคนิคเครื่องกล<br>
+                    </div>
+                    <p class="text-blue-600 text-sm mt-2">
+                        <strong>level:</strong> "ปวช" หรือ "ปวส"<br>
+                        <strong>major:</strong> เลือกจากสาขาที่กำหนดไว้
+                    </p>
+                </div>
+
+                <!-- File Upload -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">เลือกไฟล์ CSV</label>
+                    <div class="flex items-center justify-center w-full">
+                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">คลิกเพื่อเลือกไฟล์</span> หรือลากไฟล์มาวาง</p>
+                                <p class="text-xs text-gray-500">CSV เท่านั้น</p>
+                            </div>
+                            <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleCSVUpload(this)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div id="csv-preview" class="hidden mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">ตัวอย่างข้อมูลที่อ่านได้</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border border-gray-200" id="preview-table">
+                            <!-- Table content will be inserted here -->
+                        </table>
+                    </div>
+                    <div class="mt-4 flex gap-4">
+                        <button onclick="importCSVData()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                            ✅ นำเข้าข้อมูล
+                        </button>
+                        <button onclick="clearCSVPreview()" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                            ❌ ยกเลิก
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Current Data Summary -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">ข้อมูลปัจจุบันในระบบ</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-blue-100 p-3 rounded-lg">
+                            <h4 class="font-semibold text-blue-800">ระดับ ปวช.</h4>
+                            <p class="text-2xl font-bold text-blue-600" id="pvt-count">0</p>
+                            <p class="text-sm text-blue-600">นักเรียน</p>
+                        </div>
+                        <div class="bg-green-100 p-3 rounded-lg">
+                            <h4 class="font-semibold text-green-800">ระดับ ปวส.</h4>
+                            <p class="text-2xl font-bold text-green-600" id="pvs-count">0</p>
+                            <p class="text-sm text-green-600">นักเรียน</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Generator Page -->
+        <div id="qr-generator-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">สร้าง QR Code สำหรับนักเรียน</h2>
+                
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                        <select id="qr-level" onchange="updateQRMajors()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกระดับ --</option>
+                            <option value="ปวช">ปวช.</option>
+                            <option value="ปวส">ปวส.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกสาขา</label>
+                        <select id="qr-major" onchange="loadStudentsForQR()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ขนาด QR Code</label>
+                        <select id="qr-size" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="200">เล็ก (200x200)</option>
+                            <option value="300" selected>กลาง (300x300)</option>
+                            <option value="400">ใหญ่ (400x400)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <button onclick="generateAllQRCodes()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-4">
+                        📱 สร้าง QR Code ทั้งหมด
+                    </button>
+                    <button onclick="downloadAllQRCodes()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        💾 ดาวน์โหลดทั้งหมด
+                    </button>
+                </div>
+
+                <!-- QR Codes Grid -->
+                <div id="qr-codes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <p class="col-span-full text-gray-500 text-center py-8">กรุณาเลือกระดับและสาขา แล้วกดสร้าง QR Code</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Page -->
+        <div id="attendance-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">เช็คชื่อนักเรียน</h2>
+                
+                <!-- Course Selection -->
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                        <select id="attendance-level" onchange="updateAttendanceMajors()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกระดับ --</option>
+                            <option value="ปวช">ปวช.</option>
+                            <option value="ปวส">ปวส.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกสาขา</label>
+                        <select id="attendance-major" onchange="loadStudents()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่เช็คชื่อ</label>
+                        <input type="date" id="attendance-date" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="flex flex-wrap gap-4 mb-6">
+                    <button onclick="markAll('present')" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        ✓ เช็คชื่อทั้งหมด (มาเรียน)
+                    </button>
+                    <button onclick="markAll('absent')" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                        ✗ ไม่มาเรียนทั้งหมด
+                    </button>
+                    <button onclick="clearAll()" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                        🔄 ยกเลิกทั้งหมด
+                    </button>
+                    <button onclick="saveAttendance()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        💾 บันทึกข้อมูล
+                    </button>
+                </div>
+
+                <!-- Students List -->
+                <div id="students-list" class="space-y-3">
+                    <p class="text-gray-500 text-center py-8">กรุณาเลือกระดับและสาขาเพื่อแสดงรายชื่อนักเรียน</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Report Page -->
+        <div id="daily-report-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">รายงานรายวัน</h2>
+                
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกวันที่</label>
+                        <input type="date" id="report-date" onchange="generateDailyReport()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                        <select id="report-level" onchange="updateReportMajors()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกระดับ --</option>
+                            <option value="ปวช">ปวช.</option>
+                            <option value="ปวส">ปวส.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกสาขา</label>
+                        <select id="report-major" onchange="generateDailyReport()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <canvas id="dailyChart" width="400" height="300"></canvas>
+                    </div>
+                    <div id="daily-stats" class="space-y-4">
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <h3 class="font-semibold text-green-800">มาเรียน</h3>
+                            <p class="text-2xl font-bold text-green-600" id="present-count">0</p>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <h3 class="font-semibold text-red-800">ไม่มาเรียน</h3>
+                            <p class="text-2xl font-bold text-red-600" id="absent-count">0</p>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                            <h3 class="font-semibold text-yellow-800">ลา</h3>
+                            <p class="text-2xl font-bold text-yellow-600" id="leave-count">0</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <h3 class="font-semibold text-blue-800">เปอร์เซ็นการเข้าเรียน</h3>
+                            <p class="text-2xl font-bold text-blue-600" id="attendance-percentage">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Page -->
+        <div id="summary-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">สรุปข้อมูลการเข้าเรียน</h2>
+                
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                        <select id="summary-level" onchange="updateSummaryMajors()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกระดับ --</option>
+                            <option value="ปวช">ปวช.</option>
+                            <option value="ปวส">ปวส.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกสาขา</label>
+                        <select id="summary-major" onchange="generateSummary()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="summary-content">
+                    <p class="text-gray-500 text-center py-8">กรุณาเลือกระดับและสาขาเพื่อแสดงสรุปข้อมูล</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Page -->
+        <div id="comparison-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">เปรียบเทียบเปอร์เซ็นการเข้าเรียนแต่ละสาขา</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                    <select id="comparison-level" onchange="generateComparisonChart()" class="w-full max-w-md p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- เลือกระดับ --</option>
+                        <option value="ปวช">ปวช.</option>
+                        <option value="ปวส">ปวส.</option>
+                        <option value="all">ทั้งหมด</option>
+                    </select>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <canvas id="comparisonChart" width="400" height="300"></canvas>
+                    </div>
+                    <div id="comparison-stats" class="space-y-3 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-8">กรุณาเลือกระดับเพื่อแสดงข้อมูลเปรียบเทียบ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Page -->
+        <div id="notes-page" class="page hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">บันทึกพฤติกรรมนักเรียน</h2>
+                
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกระดับ</label>
+                        <select id="notes-level" onchange="updateNotesMajors()" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกระดับ --</option>
+                            <option value="ปวช">ปวช.</option>
+                            <option value="ปวส">ปวส.</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">เลือกสาขา</label>
+                        <select id="notes-major" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่</label>
+                        <input type="date" id="notes-date" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">หัวข้อบันทึก</label>
+                    <input type="text" id="notes-title" placeholder="เช่น พฤติกรรมในชั้นเรียน, การส่งงาน, การมีส่วนร่วม" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">รายละเอียดบันทึก</label>
+                    <textarea id="notes-content" rows="8" placeholder="บันทึกพฤติกรรม ความประพฤติ การมีส่วนร่วมในชั้นเรียน หรือข้อสังเกตอื่นๆ ของนักเรียน..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+
+                <button onclick="saveNotes()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    💾 บันทึกข้อมูล
+                </button>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">บันทึกที่ผ่านมา</h3>
+                    <div id="notes-history" class="space-y-4 max-h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center py-4">ยังไม่มีบันทึก</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div class="text-center">
+                <div class="text-green-600 text-6xl mb-4">✓</div>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">บันทึกข้อมูลเรียบร้อย</h3>
+                <div id="success-summary" class="text-left bg-gray-50 p-4 rounded-lg mb-6">
+                    <!-- Summary content will be inserted here -->
+                </div>
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Major data
+        const majorsData = {
+            'ปวช': [
+                'อิเล็กทรอนิกส์',
+                'ช่างไฟฟ้า',
+                'สถาปัตยกรรม',
+                'ช่างยนต์',
+                'ยานยนต์ไฟฟ้า',
+                'ช่างเชื่อมโลหะ',
+                'ช่างกลโรงงาน',
+                'ช่างก่อสร้าง',
+                'การโรงแรม',
+                'การบัญชี',
+                'การจัดการสำนักงานดิจิทัล',
+                'เทคโนโลยีธุรกิจดิจิทัล',
+                'การตลาด'
+            ],
+            'ปวส': [
+                'เทคนิคเครื่องกล (สายตรง)',
+                'เทคนิคยานยนต์ไฟฟ้า',
+                'ไฟฟ้า',
+                'เทคโนโลยีอิเล็กทรอนิกส์',
+                'เทคนิคสถาปัตยกรรม',
+                'เทคนิคโลหะ',
+                'เทคนิคยานยนต์ไฟฟ้า',
+                'เทคนิคเครื่องกล',
+                'เทคนิคการผลิต',
+                'ช่างก่อสร้าง',
+                'การโรงแรม',
+                'การบัญชี',
+                'การจัดการสำนักงานดิจิทัล',
+                'การตลาด',
+                'เทคโนโลยีธุรกิจดิจิทัล'
+            ]
+        };
+
+        // Student data storage
+        let studentsData = JSON.parse(localStorage.getItem('studentsData')) || {};
+        let attendanceData = JSON.parse(localStorage.getItem('attendanceData')) || {};
+        let notesData = JSON.parse(localStorage.getItem('notesData')) || [];
+        let csvPreviewData = [];
+        let qrCodesData = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('attendance-date').valueAsDate = new Date();
+            document.getElementById('report-date').valueAsDate = new Date();
+            document.getElementById('notes-date').valueAsDate = new Date();
+            
+            // Load teacher name
+            const savedTeacherName = localStorage.getItem('teacherName');
+            if (savedTeacherName) {
+                document.getElementById('teacher-name').value = savedTeacherName;
+            }
+            
+            updateStudentCounts();
+            loadNotesHistory();
+        });
+
+        // Save teacher name
+        function saveTeacherName() {
+            const teacherName = document.getElementById('teacher-name').value;
+            localStorage.setItem('teacherName', teacherName);
+        }
+
+        // Navigation
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+            document.getElementById(pageId + '-page').classList.remove('hidden');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Update major dropdowns based on level selection
+        function updateQRMajors() {
+            updateMajorDropdown('qr-level', 'qr-major');
+        }
+
+        function updateAttendanceMajors() {
+            updateMajorDropdown('attendance-level', 'attendance-major');
+        }
+
+        function updateReportMajors() {
+            updateMajorDropdown('report-level', 'report-major');
+        }
+
+        function updateSummaryMajors() {
+            updateMajorDropdown('summary-level', 'summary-major');
+        }
+
+        function updateNotesMajors() {
+            updateMajorDropdown('notes-level', 'notes-major');
+        }
+
+        function updateMajorDropdown(levelId, majorId) {
+            const level = document.getElementById(levelId).value;
+            const majorSelect = document.getElementById(majorId);
+            
+            majorSelect.innerHTML = '<option value="">-- เลือกสาขา --</option>';
+            
+            if (level && majorsData[level]) {
+                majorsData[level].forEach(major => {
+                    const option = document.createElement('option');
+                    option.value = major;
+                    option.textContent = major;
+                    majorSelect.appendChild(option);
+                });
+            }
+        }
+
+        // Get course key
+        function getCourseKey(level, major) {
+            return `${level}-${major}`;
+        }
+
+        // Load students based on selected course
+        function loadStudents() {
+            const level = document.getElementById('attendance-level').value;
+            const major = document.getElementById('attendance-major').value;
+            const studentsList = document.getElementById('students-list');
+
+            if (!level || !major) {
+                studentsList.innerHTML = '<p class="text-gray-500 text-center py-8">กรุณาเลือกระดับและสาขาเพื่อแสดงรายชื่อนักเรียน</p>';
+                return;
+            }
+
+            const courseKey = getCourseKey(level, major);
+            const students = studentsData[courseKey] || [];
+            const currentDate = document.getElementById('attendance-date').value;
+            
+            if (students.length === 0) {
+                studentsList.innerHTML = '<p class="text-gray-500 text-center py-8">ไม่พบข้อมูลนักเรียนในสาขานี้ กรุณาอัปโหลดข้อมูลก่อน</p>';
+                return;
+            }
+            
+            let html = '';
+            students.forEach(student => {
+                const attendanceKey = `${courseKey}-${currentDate}-${student.id}`;
+                const currentStatus = attendanceData[attendanceKey] || '';
+                
+                html += `
+                    <div class="student-row border rounded-lg p-4 ${getStatusClass(currentStatus)}" data-student-id="${student.id}">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="relative">
+                                    <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                                        ${student.image ? `<img src="${student.image}" alt="${student.name}" class="w-full h-full object-cover">` : `<span class="text-gray-500">👤</span>`}
+                                    </div>
+                                    <button onclick="uploadImage('${student.id}')" class="absolute -bottom-1 -right-1 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-blue-600" title="อัปโหลดรูป">
+                                        📷
+                                    </button>
+                                    <input type="file" id="image-${student.id}" accept="image/*" class="hidden" onchange="handleImageUpload('${student.id}', this)">
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-800">${student.name}</h3>
+                                    <p class="text-sm text-gray-600">รหัส: ${student.id}</p>
+                                    <p class="text-xs text-blue-600">${level} ${major}</p>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="setStatus('${student.id}', 'present')" class="status-btn px-4 py-2 rounded-lg border-2 transition-colors ${currentStatus === 'present' ? 'bg-green-500 text-white border-green-500' : 'bg-white text-green-600 border-green-300 hover:bg-green-50'}">
+                                    ✓ มาเรียน
+                                </button>
+                                <button onclick="setStatus('${student.id}', 'absent')" class="status-btn px-4 py-2 rounded-lg border-2 transition-colors ${currentStatus === 'absent' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-red-600 border-red-300 hover:bg-red-50'}">
+                                    ✗ ไม่มาเรียน
+                                </button>
+                                <button onclick="setStatus('${student.id}', 'leave')" class="status-btn px-4 py-2 rounded-lg border-2 transition-colors ${currentStatus === 'leave' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white text-yellow-600 border-yellow-300 hover:bg-yellow-50'}">
+                                    📋 ลา
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            studentsList.innerHTML = html;
+        }
+
+        // Get status class for row styling
+        function getStatusClass(status) {
+            switch(status) {
+                case 'present': return 'status-present border-green-300';
+                case 'absent': return 'status-absent border-red-300';
+                case 'leave': return 'status-leave border-yellow-300';
+                default: return 'border-gray-200';
+            }
+        }
+
+        // Set attendance status
+        function setStatus(studentId, status) {
+            const level = document.getElementById('attendance-level').value;
+            const major = document.getElementById('attendance-major').value;
+            const currentDate = document.getElementById('attendance-date').value;
+            
+            if (!level || !major || !currentDate) {
+                alert('กรุณาเลือกระดับ สาขา และวันที่');
+                return;
+            }
+
+            const courseKey = getCourseKey(level, major);
+            const attendanceKey = `${courseKey}-${currentDate}-${studentId}`;
+            attendanceData[attendanceKey] = status;
+            
+            // Update row styling
+            const row = document.querySelector(`[data-student-id="${studentId}"]`);
+            row.className = `student-row border rounded-lg p-4 ${getStatusClass(status)}`;
+            
+            // Update button states
+            const buttons = row.querySelectorAll('.status-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('bg-green-500', 'bg-red-500', 'bg-yellow-500', 'text-white');
+                btn.classList.add('bg-white');
+            });
+            
+            const activeButton = row.querySelector(`button[onclick*="'${status}'"]`);
+            if (activeButton) {
+                activeButton.classList.remove('bg-white');
+                activeButton.classList.add('text-white');
+                if (status === 'present') activeButton.classList.add('bg-green-500');
+                else if (status === 'absent') activeButton.classList.add('bg-red-500');
+                else if (status === 'leave') activeButton.classList.add('bg-yellow-500');
+            }
+        }
+
+        // Mark all students with specific status
+        function markAll(status) {
+            const level = document.getElementById('attendance-level').value;
+            const major = document.getElementById('attendance-major').value;
+            
+            if (!level || !major) {
+                alert('กรุณาเลือกระดับและสาขา');
+                return;
+            }
+
+            const courseKey = getCourseKey(level, major);
+            const students = studentsData[courseKey] || [];
+            students.forEach(student => {
+                setStatus(student.id, status);
+            });
+        }
+
+        // Clear all attendance
+        function clearAll() {
+            const level = document.getElementById('attendance-level').value;
+            const major = document.getElementById('attendance-major').value;
+            const currentDate = document.getElementById('attendance-date').value;
+            
+            if (!level || !major || !currentDate) return;
+
+            const courseKey = getCourseKey(level, major);
+            const students = studentsData[courseKey] || [];
+            students.forEach(student => {
+                const attendanceKey = `${courseKey}-${currentDate}-${student.id}`;
+                delete attendanceData[attendanceKey];
+            });
+            
+            loadStudents();
+        }
+
+        // Upload image
+        function uploadImage(studentId) {
+            document.getElementById(`image-${studentId}`).click();
+        }
+
+        function handleImageUpload(studentId, input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Find student and update image
+                    Object.keys(studentsData).forEach(courseKey => {
+                        const student = studentsData[courseKey].find(s => s.id === studentId);
+                        if (student) {
+                            student.image = e.target.result;
+                        }
+                    });
+                    
+                    // Save to localStorage
+                    localStorage.setItem('studentsData', JSON.stringify(studentsData));
+                    loadStudents();
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Save attendance
+        function saveAttendance() {
+            const level = document.getElementById('attendance-level').value;
+            const major = document.getElementById('attendance-major').value;
+            const currentDate = document.getElementById('attendance-date').value;
+            
+            if (!level || !major || !currentDate) {
+                alert('กรุณาเลือกระดับ สาขา และวันที่');
+                return;
+            }
+
+            const courseKey = getCourseKey(level, major);
+            
+            // Save to localStorage
+            localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+            
+            // Calculate summary
+            const students = studentsData[courseKey] || [];
+            let present = 0, absent = 0, leave = 0;
+            
+            students.forEach(student => {
+                const attendanceKey = `${courseKey}-${currentDate}-${student.id}`;
+                const status = attendanceData[attendanceKey];
+                if (status === 'present') present++;
+                else if (status === 'absent') absent++;
+                else if (status === 'leave') leave++;
+            });
+
+            // Calculate total statistics
+            const totalDays = getTotalAttendanceDays(courseKey);
+            const totalScore = calculateTotalScore(courseKey);
+            const maxScore = students.length * totalDays;
+            const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : 0;
+
+            // Show success modal
+            const currentTime = new Date().toLocaleString('th-TH');
+            const summaryHtml = `
+                <div class="space-y-2">
+                    <p><strong>วันที่:</strong> ${formatThaiDate(currentDate)}</p>
+                    <p><strong>เวลา:</strong> ${currentTime}</p>
+                    <p><strong>ระดับ:</strong> ${level}</p>
+                    <p><strong>สาขา:</strong> ${major}</p>
+                    <p><strong>เช็คชื่อวันนี้:</strong></p>
+                    <div class="ml-4">
+                        <p class="text-green-600">• มาเรียน: ${present} คน</p>
+                        <p class="text-red-600">• ไม่มาเรียน: ${absent} คน</p>
+                        <p class="text-yellow-600">• ลา: ${leave} คน</p>
+                    </div>
+                    <hr class="my-3">
+                    <p><strong>สรุปภาพรวม:</strong></p>
+                    <div class="ml-4">
+                        <p>• เช็คชื่อไปแล้ว: ${totalDays} วัน</p>
+                        <p>• คะแนนรวม: ${totalScore.toFixed(1)}/${maxScore} คะแนน</p>
+                        <p>• เปอร์เซ็นการเข้าเรียน: ${percentage}%</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('success-summary').innerHTML = summaryHtml;
+            document.getElementById('success-modal').classList.remove('hidden');
+            document.getElementById('success-modal').classList.add('flex');
+        }
+
+        // Helper functions
+        function getTotalAttendanceDays(courseKey) {
+            const dates = new Set();
+            Object.keys(attendanceData).forEach(key => {
+                if (key.startsWith(courseKey + '-')) {
+                    const parts = key.split('-');
+                    if (parts.length >= 5) {
+                        const date = parts[2] + '-' + parts[3] + '-' + parts[4];
+                        dates.add(date);
+                    }
+                }
+            });
+            return dates.size;
+        }
+
+        function calculateTotalScore(courseKey) {
+            let totalScore = 0;
+            Object.keys(attendanceData).forEach(key => {
+                if (key.startsWith(courseKey + '-')) {
+                    const status = attendanceData[key];
+                    if (status === 'present') totalScore += 1;
+                    else if (status === 'leave') totalScore += 0.5;
+                }
+            });
+            return totalScore;
+        }
+
+        function formatThaiDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('success-modal').classList.remove('flex');
+        }
+
+        // Daily report functions
+        function generateDailyReport() {
+            const reportDate = document.getElementById('report-date').value;
+            const reportLevel = document.getElementById('report-level').value;
+            const reportMajor = document.getElementById('report-major').value;
+            
+            if (!reportDate || !reportLevel || !reportMajor) return;
+
+            const courseKey = getCourseKey(reportLevel, reportMajor);
+            const students = studentsData[courseKey] || [];
+            let present = 0, absent = 0, leave = 0;
+            
+            students.forEach(student => {
+                const attendanceKey = `${courseKey}-${reportDate}-${student.id}`;
+                const status = attendanceData[attendanceKey];
+                if (status === 'present') present++;
+                else if (status === 'absent') absent++;
+                else if (status === 'leave') leave++;
+            });
+
+            const total = present + absent + leave;
+            const percentage = total > 0 ? ((present + leave * 0.5) / total * 100).toFixed(1) : 0;
+
+            // Update stats
+            document.getElementById('present-count').textContent = present;
+            document.getElementById('absent-count').textContent = absent;
+            document.getElementById('leave-count').textContent = leave;
+            document.getElementById('attendance-percentage').textContent = percentage + '%';
+
+            // Update chart
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['มาเรียน', 'ไม่มาเรียน', 'ลา'],
+                    datasets: [{
+                        data: [present, absent, leave],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Summary functions
+        function generateSummary() {
+            const level = document.getElementById('summary-level').value;
+            const major = document.getElementById('summary-major').value;
+            
+            if (!level || !major) return;
+
+            const courseKey = getCourseKey(level, major);
+            const students = studentsData[courseKey] || [];
+            const summaryContent = document.getElementById('summary-content');
+            
+            if (students.length === 0) {
+                summaryContent.innerHTML = '<p class="text-gray-500 text-center py-8">ไม่พบข้อมูลนักเรียนในสาขานี้</p>';
+                return;
+            }
+            
+            let html = '<div class="overflow-x-auto"><table class="min-w-full bg-white border border-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-2 border text-left">รหัสนักศึกษา</th>';
+            html += '<th class="px-4 py-2 border text-left">ชื่อ-นามสกุล</th>';
+            html += '<th class="px-4 py-2 border text-center">มาเรียน</th>';
+            html += '<th class="px-4 py-2 border text-center">ไม่มาเรียน</th>';
+            html += '<th class="px-4 py-2 border text-center">ลา</th>';
+            html += '<th class="px-4 py-2 border text-center">คะแนน</th>';
+            html += '<th class="px-4 py-2 border text-center">เปอร์เซ็น</th>';
+            html += '</tr></thead><tbody>';
+
+            students.forEach(student => {
+                let present = 0, absent = 0, leave = 0;
+                
+                Object.keys(attendanceData).forEach(key => {
+                    if (key.includes(courseKey) && key.endsWith(student.id)) {
+                        const status = attendanceData[key];
+                        if (status === 'present') present++;
+                        else if (status === 'absent') absent++;
+                        else if (status === 'leave') leave++;
+                    }
+                });
+
+                const totalDays = present + absent + leave;
+                const score = present + (leave * 0.5);
+                const percentage = totalDays > 0 ? ((score / totalDays) * 100).toFixed(1) : 0;
+
+                html += `<tr class="hover:bg-gray-50">`;
+                html += `<td class="px-4 py-2 border">${student.id}</td>`;
+                html += `<td class="px-4 py-2 border">${student.name}</td>`;
+                html += `<td class="px-4 py-2 border text-center text-green-600">${present}</td>`;
+                html += `<td class="px-4 py-2 border text-center text-red-600">${absent}</td>`;
+                html += `<td class="px-4 py-2 border text-center text-yellow-600">${leave}</td>`;
+                html += `<td class="px-4 py-2 border text-center font-semibold">${score.toFixed(1)}/${totalDays}</td>`;
+                html += `<td class="px-4 py-2 border text-center font-semibold ${percentage >= 80 ? 'text-green-600' : percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}">${percentage}%</td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            summaryContent.innerHTML = html;
+        }
+
+        // Comparison chart
+        function generateComparisonChart() {
+            const level = document.getElementById('comparison-level').value;
+            if (!level) return;
+
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const comparisonStats = document.getElementById('comparison-stats');
+            
+            let majorsToShow = [];
+            let chartData = [];
+            let statsHtml = '';
+
+            if (level === 'all') {
+                // Show all majors from both levels
+                Object.keys(majorsData).forEach(lvl => {
+                    majorsData[lvl].forEach(major => {
+                        majorsToShow.push(`${lvl} ${major}`);
+                    });
+                });
+            } else {
+                majorsToShow = majorsData[level].map(major => `${level} ${major}`);
+            }
+
+            majorsToShow.forEach(majorDisplay => {
+                const [lvl, ...majorParts] = majorDisplay.split(' ');
+                const major = majorParts.join(' ');
+                const courseKey = getCourseKey(lvl, major);
+                const students = studentsData[courseKey] || [];
+                
+                if (students.length > 0) {
+                    const totalScore = calculateTotalScore(courseKey);
+                    const totalDays = getTotalAttendanceDays(courseKey);
+                    const maxScore = students.length * totalDays;
+                    const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100) : 0;
+                    
+                    chartData.push({
+                        label: majorDisplay,
+                        percentage: percentage.toFixed(1),
+                        studentCount: students.length
+                    });
+
+                    const colorClass = percentage >= 80 ? 'bg-green-100 border-green-200 text-green-800' : 
+                                     percentage >= 60 ? 'bg-yellow-100 border-yellow-200 text-yellow-800' : 
+                                     'bg-red-100 border-red-200 text-red-800';
+
+                    statsHtml += `
+                        <div class="${colorClass} p-3 rounded-lg border">
+                            <h4 class="font-semibold text-sm">${majorDisplay}</h4>
+                            <p class="text-xl font-bold">${percentage.toFixed(1)}%</p>
+                            <p class="text-xs">จำนวนนักเรียน: ${students.length} คน</p>
+                        </div>
+                    `;
+                }
+            });
+
+            comparisonStats.innerHTML = statsHtml || '<p class="text-gray-500 text-center py-8">ไม่พบข้อมูล</p>';
+
+            if (chartData.length > 0) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.map(d => d.label),
+                        datasets: [{
+                            label: 'เปอร์เซ็นการเข้าเรียน',
+                            data: chartData.map(d => parseFloat(d.percentage)),
+                            backgroundColor: chartData.map(d => {
+                                const pct = parseFloat(d.percentage);
+                                return pct >= 80 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444';
+                            }),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Notes functions
+        function saveNotes() {
+            const level = document.getElementById('notes-level').value;
+            const major = document.getElementById('notes-major').value;
+            const date = document.getElementById('notes-date').value;
+            const title = document.getElementById('notes-title').value;
+            const content = document.getElementById('notes-content').value;
+
+            if (!level || !major || !date || !title || !content) {
+                alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+                return;
+            }
+
+            const note = {
+                id: Date.now(),
+                level: level,
+                major: major,
+                date: date,
+                title: title,
+                content: content,
+                timestamp: new Date().toISOString()
+            };
+
+            notesData.unshift(note);
+            localStorage.setItem('notesData', JSON.stringify(notesData));
+
+            // Clear form
+            document.getElementById('notes-title').value = '';
+            document.getElementById('notes-content').value = '';
+
+            alert('บันทึกข้อมูลเรียบร้อย');
+            loadNotesHistory();
+        }
+
+        function loadNotesHistory() {
+            const historyDiv = document.getElementById('notes-history');
+            if (notesData.length === 0) {
+                historyDiv.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่มีบันทึก</p>';
+                return;
+            }
+
+            let html = '';
+            notesData.forEach(note => {
+                html += `
+                    <div class="bg-gray-50 p-4 rounded-lg border">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-semibold text-gray-800">${note.title}</h4>
+                            <span class="text-sm text-gray-500">${formatThaiDate(note.date)}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-2">${note.level} ${note.major}</p>
+                        <p class="text-gray-700">${note.content}</p>
+                    </div>
+                `;
+            });
+            historyDiv.innerHTML = html;
+        }
+
+        // CSV Upload Functions
+        function handleCSVUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+                alert('กรุณาเลือกไฟล์ CSV เท่านั้น');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csv = e.target.result;
+                Papa.parse(csv, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        if (results.errors.length > 0) {
+                            alert('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV');
+                            console.error(results.errors);
+                            return;
+                        }
+                        
+                        csvPreviewData = results.data;
+                        showCSVPreview(csvPreviewData);
+                    }
+                });
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function showCSVPreview(data) {
+            if (data.length === 0) {
+                alert('ไม่พบข้อมูลในไฟล์ CSV');
+                return;
+            }
+
+            // Validate required columns
+            const requiredColumns = ['student_id', 'name', 'level', 'major'];
+            const columns = Object.keys(data[0]);
+            const missingColumns = requiredColumns.filter(col => !columns.includes(col));
+            
+            if (missingColumns.length > 0) {
+                alert(`ไฟล์ CSV ขาดคอลัมน์: ${missingColumns.join(', ')}`);
+                return;
+            }
+
+            // Show preview
+            document.getElementById('csv-preview').classList.remove('hidden');
+            
+            let html = '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-4 py-2 border text-left">รหัสนักศึกษา</th>';
+            html += '<th class="px-4 py-2 border text-left">ชื่อ-นามสกุล</th>';
+            html += '<th class="px-4 py-2 border text-left">ระดับ</th>';
+            html += '<th class="px-4 py-2 border text-left">สาขา</th>';
+            html += '<th class="px-4 py-2 border text-center">สถานะ</th>';
+            html += '</tr></thead><tbody>';
+
+            data.forEach((row, index) => {
+                const isValidLevel = ['ปวช', 'ปวส'].includes(row.level);
+                const isValidMajor = isValidLevel && majorsData[row.level] && majorsData[row.level].includes(row.major);
+                const isValid = row.student_id && row.name && isValidLevel && isValidMajor;
+                
+                const statusClass = isValid ? 'text-green-600' : 'text-red-600';
+                const statusText = isValid ? '✓ ถูกต้อง' : '✗ ข้อมูลไม่ถูกต้อง';
+                
+                html += `<tr class="hover:bg-gray-50">`;
+                html += `<td class="px-4 py-2 border">${row.student_id || '-'}</td>`;
+                html += `<td class="px-4 py-2 border">${row.name || '-'}</td>`;
+                html += `<td class="px-4 py-2 border">${row.level || '-'}</td>`;
+                html += `<td class="px-4 py-2 border">${row.major || '-'}</td>`;
+                html += `<td class="px-4 py-2 border text-center ${statusClass}">${statusText}</td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody>';
+            document.getElementById('preview-table').innerHTML = html;
+        }
+
+        function importCSVData() {
+            if (csvPreviewData.length === 0) return;
+
+            // Validate and import data
+            let importCount = 0;
+            csvPreviewData.forEach(row => {
+                const isValidLevel = ['ปวช', 'ปวส'].includes(row.level);
+                const isValidMajor = isValidLevel && majorsData[row.level] && majorsData[row.level].includes(row.major);
+                
+                if (row.student_id && row.name && isValidLevel && isValidMajor) {
+                    const courseKey = getCourseKey(row.level, row.major);
+                    
+                    // Check if student already exists
+                    if (!studentsData[courseKey]) {
+                        studentsData[courseKey] = [];
+                    }
+                    
+                    const existingStudent = studentsData[courseKey].find(s => s.id === row.student_id);
+                    if (!existingStudent) {
+                        studentsData[courseKey].push({
+                            id: row.student_id,
+                            name: row.name,
+                            level: row.level,
+                            major: row.major,
+                            image: null
+                        });
+                        importCount++;
+                    }
+                }
+            });
+
+            // Save to localStorage
+            localStorage.setItem('studentsData', JSON.stringify(studentsData));
+            
+            alert(`นำเข้าข้อมูลเรียบร้อย จำนวน ${importCount} คน`);
+            clearCSVPreview();
+            updateStudentCounts();
+        }
+
+        function clearCSVPreview() {
+            document.getElementById('csv-preview').classList.add('hidden');
+            document.getElementById('csv-file').value = '';
+            csvPreviewData = [];
+        }
+
+        function updateStudentCounts() {
+            let pvtCount = 0, pvsCount = 0;
+            
+            Object.keys(studentsData).forEach(courseKey => {
+                if (courseKey.startsWith('ปวช-')) {
+                    pvtCount += studentsData[courseKey].length;
+                } else if (courseKey.startsWith('ปวส-')) {
+                    pvsCount += studentsData[courseKey].length;
+                }
+            });
+            
+            document.getElementById('pvt-count').textContent = pvtCount;
+            document.getElementById('pvs-count').textContent = pvsCount;
+        }
+
+        // QR Code Functions
+        function loadStudentsForQR() {
+            const level = document.getElementById('qr-level').value;
+            const major = document.getElementById('qr-major').value;
+            
+            if (!level || !major) {
+                document.getElementById('qr-codes-grid').innerHTML = '<p class="col-span-full text-gray-500 text-center py-8">กรุณาเลือกระดับและสาขา แล้วกดสร้าง QR Code</p>';
+                return;
+            }
+        }
+
+        function generateAllQRCodes() {
+            const level = document.getElementById('qr-level').value;
+            const major = document.getElementById('qr-major').value;
+            const size = parseInt(document.getElementById('qr-size').value);
+            
+            if (!level || !major) {
+                alert('กรุณาเลือกระดับและสาขา');
+                return;
+            }
+
+            const courseKey = getCourseKey(level, major);
+            const students = studentsData[courseKey] || [];
+            
+            if (students.length === 0) {
+                alert('ไม่พบข้อมูลนักเรียนในสาขานี้');
+                return;
+            }
+
+            const grid = document.getElementById('qr-codes-grid');
+            grid.innerHTML = '';
+            qrCodesData = [];
+
+            students.forEach(student => {
+                const qrData = {
+                    studentId: student.id,
+                    studentName: student.name,
+                    level: student.level,
+                    major: student.major,
+                    timestamp: new Date().toISOString()
+                };
+
+                const qrString = JSON.stringify(qrData);
+                
+                // Create QR code container
+                const qrContainer = document.createElement('div');
+                qrContainer.className = 'bg-white border rounded-lg p-4 text-center shadow-sm';
+                
+                // Create canvas for QR code
+                const canvas = document.createElement('canvas');
+                canvas.id = `qr-${student.id}`;
+                
+                // Generate QR code
+                QRCode.toCanvas(canvas, qrString, {
+                    width: size,
+                    height: size,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                }, function(error) {
+                    if (error) {
+                        console.error('QR Code generation error:', error);
+                        return;
+                    }
+                    
+                    qrContainer.innerHTML = `
+                        <div class="mb-3">
+                            <h3 class="font-semibold text-gray-800 text-sm">${student.name}</h3>
+                            <p class="text-xs text-gray-600">${student.id}</p>
+                            <p class="text-xs text-blue-600">${student.level} ${student.major}</p>
+                        </div>
+                        <div class="flex justify-center mb-3"></div>
+                        <button onclick="downloadSingleQR('${student.id}')" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 transition-colors">
+                            💾 ดาวน์โหลด
+                        </button>
+                    `;
+                    
+                    qrContainer.querySelector('.flex.justify-center').appendChild(canvas);
+                    grid.appendChild(qrContainer);
+                    
+                    // Store QR data for batch download
+                    qrCodesData.push({
+                        studentId: student.id,
+                        studentName: student.name,
+                        canvas: canvas,
+                        dataUrl: canvas.toDataURL('image/png')
+                    });
+                });
+            });
+        }
+
+        function downloadSingleQR(studentId) {
+            const qrData = qrCodesData.find(qr => qr.studentId === studentId);
+            if (!qrData) return;
+
+            const link = document.createElement('a');
+            link.download = `QR_${qrData.studentId}_${qrData.studentName.replace(/\s+/g, '_')}.png`;
+            link.href = qrData.dataUrl;
+            link.click();
+        }
+
+        function downloadAllQRCodes() {
+            if (qrCodesData.length === 0) {
+                alert('กรุณาสร้าง QR Code ก่อน');
+                return;
+            }
+
+            // Create a simple batch download
+            qrCodesData.forEach((qrData, index) => {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.download = `QR_${qrData.studentId}_${qrData.studentName.replace(/\s+/g, '_')}.png`;
+                    link.href = qrData.dataUrl;
+                    link.click();
+                }, index * 500); // Delay each download by 500ms
+            });
+            
+            alert(`กำลังดาวน์โหลด QR Code จำนวน ${qrCodesData.length} ไฟล์`);
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96297879b23b8966',t:'MTc1MzA4ODAzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
